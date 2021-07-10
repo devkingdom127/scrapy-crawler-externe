@@ -1,0 +1,7 @@
+-r requirements.txt
+pytest
+pytest-cov
+flake8
+freezegun==0.3.*
+click
+openapi_spec_validator

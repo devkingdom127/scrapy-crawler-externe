@@ -1,0 +1,53 @@
+summary: Run the crawler
+operationId: api.controllers.run.post
+tags:
+  - run
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          input:
+            type: object
+          crawler_type:
+            type: string
+            enum: ['spider']
+          crawler_expected_content_type:
+            type: string
+            enum: ['administrative_document']
+          crawler_options:
+            type: object
+            properties:
+              user:
+                type: string
+                minLength: 3
+              start_url:
+                type: string
+                format: uri
+              locations:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  properties:
+                    uid:
+                      type: string
+                      minLength: 6
+                    name:
+                      type: string
+                      minLength: 1
+responses:
+  '200':
+    description: The crawl task was successfully scheduled
+    content:
+      application/json:
+        schema:
+          type: object
+  '500':
+    description: Something went wrong
+    content:
+      application/json:
+        schema:
+          $ref: ../common/error.yaml

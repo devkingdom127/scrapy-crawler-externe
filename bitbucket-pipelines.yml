@@ -1,0 +1,105 @@
+image: python:3.6.8
+
+definitions:
+  services:
+    docker:
+      memory: 2048
+  steps:
+    - step: &api-spec-validation
+        name: Validate OpenAPI spec using prance
+        caches:
+          - pip
+        script:
+          - pip install -r requirements-tests.txt
+          - prance validate contracts/spec.yaml
+
+    - step: &style-validation
+        name: Validate style using flake8
+        caches:
+          - pip
+        script:
+          - pip install -r requirements-tests.txt
+          - flake8 .
+
+    - step: &tests
+        name: Run tests
+        caches:
+          - pip
+        script:
+          - pip install -r requirements-tests.txt
+          - python -m pytest tests/unit_tests --cov=api --cov-report xml:test-results/cov.xml --junitxml=test-results/log.xml
+          - python -m pytest tests/functional_tests
+        artifacts:
+          - test-results/*
+
+    - step: &code-quality-assessment
+        name: Sonarcloud analyses
+        caches:
+          - pip
+        script:
+          - pipe: sonarsource/sonarcloud-scan:1.0.1
+            variables:
+              EXTRA_ARGS: -Dsonar.python.coverage.reportPaths='test-results/cov.xml' -Dsonar.sources='api' -Dsonar.coverage.exclusions='api/helpers/spiders/custom/*'
+
+    - step: &deploy
+        # Any pipeline that uses this step *must* also define key 'deployment:'
+        name: deploy
+        trigger: manual
+        caches:
+          - pip
+        script:
+          - export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID_PROD
+          - export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY_PROD
+          - pip install awsebcli
+          - pip install setuptools_rust
+          - pip install -r requirements.txt
+          - pip install -Iv botocore==1.17
+          - eb init 'eb-document-crawler-worker' -p 'Python-3.6' --region 'eu-west-3' -v
+          - eb use $DEPLOYMENT_ENVIRONMENT
+          - >
+            eb setenv
+            RUNNING_ENV=$RUNNING_ENV
+            ROLLBAR_TOKEN=$ROLLBAR_TOKEN
+            ADMINDOC_CRAWLER_OUTPUT_QUEUE_REGION=$ADMINDOC_CRAWLER_OUTPUT_QUEUE_REGION
+            ADMINDOC_CRAWLER_OUTPUT_QUEUE_URL=$ADMINDOC_CRAWLER_OUTPUT_QUEUE_URL
+            ADMINDOC_CRAWLER_ERROR_QUEUE_URL=$ADMINDOC_CRAWLER_ERROR_QUEUE_URL
+            ADMINDOC_CRAWLER_PENSIEVE_URL=$ADMINDOC_CRAWLER_PENSIEVE_URL
+            DURATION_CRAWLER_ALERT=$DURATION_CRAWLER_ALERT
+            ADMINDOC_CRAWLER_DEPTH_LIMIT=$ADMINDOC_CRAWLER_DEPTH_LIMIT
+            ADMINDOC_CRAWLER_RETRY_TIMES=$ADMINDOC_CRAWLER_RETRY_TIMES
+            ADMINDOC_CRAWLER_DOWNLOAD_TIMEOUT=$ADMINDOC_CRAWLER_DOWNLOAD_TIMEOUT
+            ADMINDOC_CRAWLER_CLOSESPIDER_TIMEOUT=$ADMINDOC_CRAWLER_CLOSESPIDER_TIMEOUT
+            ADMINDOC_CRAWLER_DOWNLOAD_DELAY=$ADMINDOC_CRAWLER_DOWNLOAD_DELAY
+            ADMINDOC_CRAWLER_CONCURRENT_REQUESTS=$ADMINDOC_CRAWLER_CONCURRENT_REQUESTS
+            ADMINDOC_CRAWLER_S3_CONFIG=$ADMINDOC_CRAWLER_S3_CONFIG
+          - eb deploy --timeout 20 --label $(git rev-parse HEAD) -v
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          script:
+            - echo "This PR has mergeable code :)"
+      - parallel:
+        - step: *api-spec-validation
+        - step: *style-validation
+        - step: *tests
+  default:
+    - parallel:
+        - step: *api-spec-validation
+        - step: *style-validation
+        - step: *tests
+    - step: *code-quality-assessment
+    - step:
+        <<: *deploy
+        deployment: Staging
+  branches:
+    master:
+      - parallel:
+          - step: *api-spec-validation
+          - step: *style-validation
+          - step: *tests
+      - step: *code-quality-assessment
+      - step:
+          <<: *deploy
+          deployment: Production

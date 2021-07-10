@@ -1,0 +1,11 @@
+setuptools_rust
+cryptography==3.3.2
+connexion[swagger-ui]==2.6.*
+prance==0.18.*
+rollbar==0.14.*
+scrapy==2.1.*
+boto3
+future
+rollbar==0.14.*
+idna
+crochet

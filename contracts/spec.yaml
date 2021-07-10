@@ -1,0 +1,12 @@
+openapi: 3.0.0
+info:
+  title: "SAM crawler API"
+  version: 0.2.0
+  contact:
+    name: Dev team
+    email: dev@explain.fr
+    url: https://explain.fr/
+paths:
+  /run:
+    post:
+      $ref: run/post.yaml

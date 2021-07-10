@@ -1,0 +1,14 @@
+tests/
+node_modules/
+test-results/
+.idea/
+.git/
+.flake8
+.gitignore
+requirements-tests.txt
+bitbucket-pipelines.yml
+.editorconfig
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+.bitbucket/*
